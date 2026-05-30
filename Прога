@@ -1,0 +1,392 @@
+index.html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xiaomi HyperOS Simulator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Roboto', 'Segoe UI', sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Корпус смартфона */
+        #phone-body {
+            width: 390px;
+            height: 844px;
+            background: #000;
+            border-radius: 45px;
+            border: 12px solid #333;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Вырез под камеру (Dynamic Island / Капля) */
+        #camera-notch {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 30px;
+            background: black;
+            border-radius: 20px;
+            z-index: 10000;
+        }
+
+        /* Экран */
+        #screen {
+            width: 100%;
+            height: 100%;
+            background: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1964&auto=format&fit=crop') center/cover;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Строка состояния (Статус-бар) */
+        #status-bar {
+            height: 45px;
+            padding: 18px 25px 0 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 999;
+        }
+
+        .status-icons span {
+            margin-left: 5px;
+        }
+
+        /* Фирменный виджет часов Xiaomi */
+        #xiaomi-widget {
+            margin-top: 40px;
+            text-align: center;
+            color: white;
+        }
+
+        #widget-time {
+            font-size: 64px;
+            font-weight: 300;
+            line-height: 1;
+        }
+
+        #widget-date {
+            font-size: 14px;
+            margin-top: 5px;
+            opacity: 0.9;
+            letter-spacing: 1px;
+        }
+
+        /* Сетка приложений (Рабочий стол) */
+        #app-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 15px;
+            padding: 40px 20px;
+            align-content: start;
+        }
+
+        .app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .icon-shape {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px; /* Фирменное скругление иконок Xiaomi */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+
+        .app-icon:active .icon-shape {
+            transform: scale(0.9);
+        }
+
+        .app-label {
+            color: white;
+            font-size: 11px;
+            margin-top: 6px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+            text-align: center;
+            max-width: 70px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Нижний Док-бар */
+        #dock {
+            height: 90px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 30px;
+            margin: 15px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 0 10px;
+        }
+
+        /* Шторка (Центр управления HyperOS) */
+        #control-center {
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 15, 15, 0.92);
+            backdrop-filter: blur(25px);
+            z-index: 9999;
+            transition: top 0.4s cubic-bezier(0.1, 1, 0.1, 1);
+            padding: 60px 25px 25px 25px;
+            color: white;
+        }
+
+        #control-center.open {
+            top: 0;
+        }
+
+        /* Сетка переключателей в шторке */
+        .cc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .cc-tile {
+            background: rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .cc-tile.active {
+            background: #0076ff; /* Фирменный синий цвет Xiaomi */
+        }
+
+        .cc-tile-icon {
+            font-size: 22px;
+            margin-bottom: 5px;
+        }
+
+        /* Триггер для открытия шторки (невидимая зона сверху справа) */
+        #pull-trigger {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 40%;
+            height: 40px;
+            z-index: 10000;
+            cursor: s-resize;
+        }
+
+        /* Кнопка закрытия шторки внизу */
+        #close-cc-btn {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 5px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Окно "приложения" */
+        .app-window {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 500;
+            transition: top 0.3s ease-out;
+            border-radius: 33px 33px 0 0;
+            padding: 50px 20px 20px 20px;
+        }
+
+        .app-window.open {
+            top: 0;
+        }
+
+        .close-app {
+            background: #f0f0f0;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="phone-body">
+        <div id="camera-notch"></div>
+        
+        <div id="pull-trigger" onclick="toggleCC(true)"></div>
+
+        <div id="screen">
+            
+            <div id="status-bar">
+                <div id="status-time">12:00</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋 99%</span>
+                </div>
+            </div>
+
+            <div id="xiaomi-widget">
+                <div id="widget-time">12:00</div>
+                <div id="widget-date">СУББОТА, 30 МАЯ</div>
+            </div>
+
+            <div id="app-grid">
+                <div class="app-icon" onclick="openApp('settings')">
+                    <div class="icon-shape" style="background: #8e8e93;">⚙️</div>
+                    <div class="app-label">Настройки</div>
+                </div>
+                <div class="app-icon" onclick="openApp('browser')">
+                    <div class="icon-shape" style="background: #007aff;">🌐</div>
+                    <div class="app-label">Браузер</div>
+                </div>
+                <div class="app-icon" onclick="openApp('gallery')">
+                    <div class="icon-shape" style="background: #ffcc00;">🖼️</div>
+                    <div class="app-label">Галерея</div>
+                </div>
+                <div class="app-icon" onclick="openApp('themes')">
+                    <div class="icon-shape" style="background: #ff2d55;">🎨</div>
+                    <div class="app-label">Темы</div>
+                </div>
+            </div>
+
+            <div id="dock">
+                <div class="app-icon">
+                    <div class="icon-shape" style="background: #4cd964;">📞</div>
+                </div>
+                <div class="app-icon">
+                    <div class="icon-shape" style="background: #5ac8fa;">💬</div>
+                </div>
+                <div class="app-icon">
+                    <div class="icon-shape" style="background: #ff9500;">📷</div>
+                </div>
+            </div>
+
+            <div id="app-window" class="app-window">
+                <h2 id="app-title">Настройки</h2>
+                <p style="margin-top: 15px; color: #666;">Версия системы: HyperOS 1.0.5</p>
+                <p style="color: #666;">Устройство: Xiaomi Simulator Ultra</p>
+                <button class="close-all close-app" onclick="closeApp()">Выйти на главный экран</button>
+            </div>
+
+            <div id="control-center">
+                <h3>Центр управления</h3>
+                <div class="cc-grid">
+                    <div class="cc-tile active" onclick="this.classList.toggle('active')">
+                        <div class="cc-tile-icon">📶</div>
+                        <div>Wi-Fi</div>
+                    </div>
+                    <div class="cc-tile active" onclick="this.classList.toggle('active')">
+                        <div class="cc-tile-icon">📱</div>
+                        <div>Интернет</div>
+                    </div>
+                    <div class="cc-tile" onclick="this.classList.toggle('active')">
+                        <div class="cc-tile-icon">🔊</div>
+                        <div>Звук</div>
+                    </div>
+                    <div class="cc-tile" onclick="this.classList.toggle('active')">
+                        <div class="cc-tile-icon">🔦</div>
+                        <div>Фонарик</div>
+                    </div>
+                </div>
+                <div id="close-cc-btn" onclick="toggleCC(false)"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Обновление времени
+        function updateTime() {
+            const now = new Date();
+            let hours = now.getHours().toString().padStart(2, '0');
+            let minutes = now.getMinutes().toString().padStart(2, '0');
+            
+            const timeStr = `${hours}:${minutes}`;
+            
+            document.getElementById('status-time').textContent = timeStr;
+            document.getElementById('widget-time').textContent = timeStr;
+            
+            const options = { weekday: 'long', month: 'long', day: 'numeric' };
+            document.getElementById('widget-date').textContent = now.toLocaleDateString('ru-RU', options).toUpperCase();
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Управление шторкой
+        function toggleCC(open) {
+            const cc = document.getElementById('control-center');
+            if (open) {
+                cc.classList.add('open');
+            } else {
+                cc.classList.remove('open');
+            }
+        }
+
+        // Логика открытия приложений
+        function openApp(appName) {
+            const win = document.getElementById('app-window');
+            const title = document.getElementById('app-title');
+            
+            if(appName === 'settings') title.textContent = "Настройки";
+            if(appName === 'browser') title.textContent = "Браузер Mi";
+            if(appName === 'gallery') title.textContent = "Галерея";
+            if(appName === 'themes') title.textContent = "Темы MIUI";
+            
+            win.classList.add('open');
+        }
+
+        function closeApp() {
+            document.getElementById('app-window').classList.remove('open');
+        }
+    </script>
+</body>
+</html>
